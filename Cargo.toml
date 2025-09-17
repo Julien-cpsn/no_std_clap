@@ -1,0 +1,11 @@
+[workspace]
+members = ["no_std_clap_core", "no_std_clap_macros", "no_std_clap_tests"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+no_std_clap_core = { path = "no_std_clap_core" }
+no_std_clap_macros = { path = "no_std_clap_macros" }

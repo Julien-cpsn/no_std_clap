@@ -1,0 +1,8 @@
+[package]
+name = "no_std_clap_tests"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+no_std_clap_core = { path = "../no_std_clap_core" }
+no_std_clap_macros = { path = "../no_std_clap_macros" }
