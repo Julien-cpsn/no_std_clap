@@ -1,4 +1,4 @@
-# no_std clap
+# `no_std` clap
 
 `no_std` compliant clone of rust clap (command line argument parser) with minimal functionalities.
 
