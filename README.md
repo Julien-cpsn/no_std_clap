@@ -1,9 +1,9 @@
 # no_std clap
 
-no_std version of rust clap (command line argument parser)
+`no_std` compliant clone of rust clap (command line argument parser) with minimal functionalities.
 
 > [!WARNING]
-> You still need alloc
+> You still need `alloc`
 
 ## Usage
 
