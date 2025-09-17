@@ -187,6 +187,10 @@ fn parse_field_attributes(field: &Field) -> Result<FieldAttributes, Error> {
         }
     }
 
+    if is_vec_type(&field.ty) && !field_attrs.multiple {
+        field_attrs.multiple = true;
+    }
+
     Ok(field_attrs)
 }
 
@@ -205,13 +209,19 @@ fn generate_field_parsers(fields: &FieldsNamed) -> Result<Vec<proc_macro2::Token
         let var_name = format_ident!("parsed_{}", field_name);
 
         let is_optional = is_option_type(&field.ty);
-        //let is_vec = is_vec_type(&field.ty);
+        let is_vec = is_vec_type(&field.ty);
         let is_bool = is_bool_type(&field.ty);
 
         let parser = if is_bool {
             // Boolean flags don't take values
             quote! {
                 let #var_name = parsed.contains_key(#field_name_str);
+            }
+        }
+        else if is_vec {
+            // Vec types can have multiple values
+            quote! {
+                let #var_name = parsed.get_all(#field_name_str);
             }
         }
         else if field_attrs.required && !is_optional {
@@ -258,12 +268,25 @@ fn generate_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macro2::T
         let field_type = &field.ty;
 
         let is_optional = is_option_type(field_type);
-        //let is_vec = is_vec_type(field_type);
+        let is_vec = is_vec_type(field_type);
         let is_bool = is_bool_type(field_type);
 
         let mut assignment = if is_bool {
             quote! {
                 #field_name: #var_name
+            }
+        }
+        else if is_vec {
+            // For Vec<T>, parse each value and collect into a vector
+            let inner_type = get_inner_type(field_type).unwrap_or(field_type);
+            quote! {
+                #field_name: {
+                    let mut vec = ::alloc::vec::Vec::new();
+                    for value in #var_name {
+                        vec.push(<#inner_type as FromArg>::from_arg(value)?);
+                    }
+                    vec
+                }
             }
         }
         else if is_optional {
@@ -312,6 +335,7 @@ fn generate_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_macro2::Tok
 
         let field_name_str = field_name.to_string();
         let is_bool = is_bool_type(&field.ty);
+        let is_vec = is_vec_type(&field.ty);
 
         let mut arg_info_def = quote! {
             ArgInfo::new(#field_name_str)
@@ -349,7 +373,7 @@ fn generate_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_macro2::Tok
             });
         }
 
-        if field_attrs.multiple {
+        if field_attrs.multiple || is_vec {
             arg_info_def.extend(quote! {
                 .multiple()
             });
