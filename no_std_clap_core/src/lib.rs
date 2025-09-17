@@ -7,3 +7,4 @@ pub mod command;
 pub mod error;
 pub mod macros;
 pub mod parser;
+pub mod subcommand;

@@ -1,6 +1,9 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use crate::arg::arg_info::ArgInfo;
+use crate::arg::parsed_arg::ParsedArgs;
 use crate::error::ParseError;
+use crate::subcommand::SubcommandInfo;
 
 // Main parser trait
 pub trait Parser: Sized {
@@ -21,7 +24,18 @@ pub trait Parser: Sized {
     }
 }
 
-// Additional utility functions
+// Trait for types that can be used as subcommands
+pub trait Subcommand: Sized {
+    fn from_subcommand(name: &str, args: &ParsedArgs) -> Result<Self, ParseError>;
+    fn subcommand_info() -> Vec<SubcommandInfo>;
+}
+
+// Trait for arguments that can have subcommands
+pub trait Args: Sized {
+    fn from_args(args: &ParsedArgs) -> Result<Self, ParseError>;
+    fn arg_info() -> Vec<ArgInfo>;
+}
+
 // Command line string parsing function
 fn parse_command_line(input: &str) -> Result<Vec<String>, ParseError> {
     let mut args = Vec::new();
