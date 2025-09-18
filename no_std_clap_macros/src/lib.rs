@@ -437,18 +437,28 @@ fn generate_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macro2::T
         let var_name = format_ident!("parsed_{}", field_name);
         let field_type = &field.ty;
 
+        let is_optional = is_option_type(field_type);
+
         if field_attrs.subcommand {
-            // Handle subcommand field
-            let assignment = quote! {
-                #field_name: match #var_name {
-                    Some((name, args)) => <#field_type as Subcommand>::from_subcommand(name, args)?,
-                    None => None,
+            let assignment = if is_optional {
+                quote! {
+                    #field_name: match #var_name {
+                        Some((name, args)) => <#field_type as Subcommand>::from_subcommand(name, args)?,
+                        None => None,
+                    },
+                }
+            } else {
+                quote! {
+                    #field_name: {
+                        let (name, args) = #var_name.ok_or(::no_std_clap_core::error::ParseError::MissingSubcommand)?;
+                        <#field_type as Subcommand>::from_subcommand(name, args)?
+                    },
                 }
             };
+
             assignments.push(assignment);
         }
         else {
-            let is_optional = is_option_type(field_type);
             let is_vec = is_vec_type(field_type);
             let is_bool = is_bool_type(field_type);
 
@@ -485,12 +495,25 @@ fn generate_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macro2::T
                     #field_name: <#field_type as FromArg>::from_arg(#var_name)?
                 }
             }
-            else {
-                // Non-optional, non-required field without default - use Default
+            else if is_optional {
+                let inner_type = get_inner_type(field_type).unwrap_or(field_type);
                 quote! {
                     #field_name: match #var_name {
-                        Some(s) => <#field_type as FromArg>::from_arg(s)?,
-                        None => ::core::default::Default::default(),
+                        Some(s) => Some(<#inner_type as FromArg>::from_arg(s)?),
+                        None => None,
+                    }
+                }
+            }
+            else {
+                // Non-optional, non-required, no default -> error at runtime
+                quote! {
+                    #field_name: {
+                        let s = #var_name.ok_or_else(||
+                            ::no_std_clap_core::error::ParseError::MissingArgument(
+                                stringify!(#field_name).to_string()
+                            )
+                        )?;
+                        <#field_type as FromArg>::from_arg(s)?
                     }
                 }
             };
@@ -884,9 +907,19 @@ fn generate_args_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macr
                     None => None,
                 }
             }
-        } else if field_attrs.required || field_attrs.default_value.is_some() {
+        }
+        else if field_attrs.required || field_attrs.default_value.is_some() {
             quote! {
                 #field_name: <#field_type as ::no_std_clap_core::arg::from_arg::FromArg>::from_arg(#var_name)?
+            }
+        }
+        else if is_optional {
+            let inner_type = get_inner_type(field_type).unwrap_or(field_type);
+            quote! {
+                #field_name: match #var_name {
+                    Some(s) => Some(<#inner_type as FromArg>::from_arg(s)?),
+                    None => None,
+                }
             }
         }
         else {

@@ -8,6 +8,7 @@ pub enum ParseError {
     MissingArgument(String),
     InvalidValue(String),
     UnknownArgument(String),
+    MissingSubcommand,
     InvalidFormat(String),
 }
 
@@ -17,6 +18,7 @@ impl Display for ParseError {
             ParseError::MissingArgument(arg) => write!(f, "Missing required argument: {}", arg),
             ParseError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
             ParseError::UnknownArgument(arg) => write!(f, "Unknown argument: {}", arg),
+            ParseError::MissingSubcommand => write!(f, "Missing command"),
             ParseError::InvalidFormat(msg) => write!(f, "Invalid format: {}", msg),
         }
     }
