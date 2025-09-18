@@ -1,12 +1,14 @@
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 use crate::arg::arg_info::ArgInfo;
 use crate::arg::parsed_arg::ParsedArgs;
 use crate::error::ParseError;
+use crate::help::get_help;
 use crate::parser::Subcommand;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::fmt::Write;
 
 // Subcommand information
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SubcommandInfo {
     pub name: String,
     pub about: Option<String>,
@@ -37,6 +39,21 @@ impl SubcommandInfo {
     pub fn subcommand(mut self, subcommand: SubcommandInfo) -> Self {
         self.subcommands.push(subcommand);
         self
+    }
+
+    pub fn get_help(&self) -> String {
+        let mut out = String::new();
+        
+        if let Some(about) = &self.about {
+            write!(out, "{}", about).unwrap();
+        }
+
+        writeln!(out).unwrap();
+        writeln!(out).unwrap();
+
+        get_help(&mut out, None, &self.args, &self.subcommands);
+
+        out
     }
 }
 

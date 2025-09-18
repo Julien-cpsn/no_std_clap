@@ -1,6 +1,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
+use no_std_clap_core::error::ParseError;
 use no_std_clap_core::parser::Parser;
 use no_std_clap_macros::Parser;
 
@@ -51,4 +52,23 @@ fn test_derive_parsing() {
 
     let result_2 = Args::parse_str("--name test --count 42 --verbose true --list 5").unwrap();
     assert_eq!(result_1, result_2);
+}
+
+
+#[test]
+fn test_help_parsing() {
+    let args = vec![
+        "--name".to_string(),
+        "test".to_string(),
+        "--count".to_string(),
+        "42".to_string(),
+        "--list".to_string(),
+        "5".to_string(),
+        "--verbose".to_string(),
+        "--help".to_string(),
+    ];
+
+    if let Err(ParseError::Help(help)) = Args::parse_args(&args) {
+        assert!(!help.is_empty());
+    }
 }

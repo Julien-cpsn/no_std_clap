@@ -6,10 +6,11 @@ use core::fmt::Display;
 #[derive(Debug)]
 pub enum ParseError {
     EmptyInput,
+    Help(String),
     MissingArgument(String),
     InvalidValue(String),
     UnknownArgument(String),
-    MissingSubcommand,
+    UnknownSubcommand,
     InvalidFormat(String),
     UnknownEnumVariant(String, String),
 }
@@ -18,10 +19,11 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParseError::EmptyInput => write!(f, "Empty input"),
+            ParseError::Help(help) => write!(f, "{}", help),
             ParseError::MissingArgument(arg) => write!(f, "Missing required argument: {}", arg),
             ParseError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
             ParseError::UnknownArgument(arg) => write!(f, "Unknown argument: {}", arg),
-            ParseError::MissingSubcommand => write!(f, "Missing command"),
+            ParseError::UnknownSubcommand => write!(f, "Unknown command"),
             ParseError::InvalidFormat(msg) => write!(f, "Invalid format: {}", msg),
             ParseError::UnknownEnumVariant(value, possible_values) => write!(f, "Invalid value: {}, possible values are: {}", value, possible_values),
         }

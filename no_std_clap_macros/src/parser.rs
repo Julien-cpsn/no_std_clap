@@ -1,12 +1,11 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Attribute, Data, DeriveInput, Error, Fields, LitStr, Meta};
+use syn::{Attribute, Data, DeriveInput, Error, Expr, Fields, Lit, LitStr, Meta};
 use crate::args::{generate_arg_definitions, generate_global_arg_definitions};
 use crate::field::{generate_field_assignments, generate_field_parsers};
 use crate::subcommand::generate_subcommand_definitions;
 use crate::utils::to_kebab_case_case;
 
-#[derive(Default)]
 struct StructAttributes {
     name: Option<String>,
     version: Option<String>,
@@ -19,9 +18,19 @@ pub fn derive_parser_impl(input: DeriveInput) -> Result<TokenStream, Error> {
 
     // Parse struct attributes
     let struct_attrs = parse_struct_attributes(&input.attrs)?;
-    let app_name = struct_attrs
-        .name
-        .unwrap_or_else(|| to_kebab_case_case(name.to_string()));
+    let app_name = match struct_attrs.name {
+        Some(name) => {
+            let name = to_kebab_case_case(name.to_string());
+
+            quote! { Some(#name) }
+        },
+        None => quote! { None },
+    };
+
+    let version = match struct_attrs.version {
+        Some(version) => quote! { Some(#version) },
+        None => quote! { None }
+    };
 
     match input.data {
         Data::Struct(data_struct) => {
@@ -43,8 +52,17 @@ pub fn derive_parser_impl(input: DeriveInput) -> Result<TokenStream, Error> {
                                 use ::no_std_clap_core::parser::{Subcommand, Args};
                                 use ::alloc::string::ToString;
 
-                                let mut cmd = Command::new(#app_name);
+                                let mut cmd = Command::new(#app_name, #version);
+
                                 #(cmd = cmd.arg(#arg_definitions);)*
+                                cmd = cmd.arg(
+                                    ArgInfo::new("help")
+                                        .short('h')
+                                        .long("help")
+                                        .help("Prints help information")
+                                        .global()
+                                );
+
                                 #(#subcommand_definitions)*
 
                                 let parsed = cmd.parse(args)?;
@@ -71,7 +89,12 @@ pub fn derive_parser_impl(input: DeriveInput) -> Result<TokenStream, Error> {
 }
 
 fn parse_struct_attributes(attrs: &[Attribute]) -> Result<StructAttributes, Error> {
-    let mut struct_attrs = StructAttributes::default();
+    let mut struct_attrs = StructAttributes {
+        name: None,
+        version: None,
+        author: None,
+        about: None,
+    };
 
     for attr in attrs {
         if attr.path().is_ident("clap") {
@@ -98,6 +121,31 @@ fn parse_struct_attributes(attrs: &[Attribute]) -> Result<StructAttributes, Erro
                     })?;
                 }
                 _ => {}
+            }
+        }
+        else if attr.path().is_ident("doc") {
+            // Gather doc comments into about (if not explicitly set)
+            if struct_attrs.about.is_none() {
+                if let Meta::NameValue(meta_name_value) = &attr.meta {
+                    if let Expr::Lit(expr_lit) = &meta_name_value.value {
+                        if let Lit::Str(lit_str) = &expr_lit.lit {
+                            // Accumulate multiple lines into one string
+                            let line = lit_str.value();
+                            let trimmed = line.trim();
+                            if !trimmed.is_empty() {
+                                match &mut struct_attrs.about {
+                                    Some(existing) => {
+                                        existing.push(' ');
+                                        existing.push_str(trimmed);
+                                    }
+                                    None => {
+                                        struct_attrs.about = Some(trimmed.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

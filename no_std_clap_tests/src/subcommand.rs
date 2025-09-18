@@ -18,8 +18,8 @@ enum Commands {
     #[command(about = "Add a new item")]
     Add(AddArgs),
 
-    #[command(about = "Remove an item")]
-    Remove(RemoveArgs),
+    #[command(subcommand, about = "Remove an item")]
+    Remove(RemoveCommand),
 
     #[command(name = "list", about = "List all items")]
     List,
@@ -35,14 +35,21 @@ struct AddArgs {
     force: bool,
 }
 
+#[derive(Subcommand, Debug, PartialEq)]
+enum RemoveCommand {
+    One,
+    All(RemoveAllCommand),
+}
+
 #[derive(Args, Debug, PartialEq)]
-struct RemoveArgs {
+struct RemoveAllCommand {
     #[arg(short, long, required)]
-    name: String,
+    pub name: String,
 
     #[arg(short, long)]
-    recursive: bool,
+    pub recursive: bool,
 }
+
 
 #[test]
 fn test_subcommand_add() {
@@ -71,6 +78,7 @@ fn test_subcommand_add() {
 fn test_subcommand_remove() {
     let args = vec![
         "remove".to_string(),
+        "all".to_string(),
         "--name".to_string(),
         "old_item".to_string(),
         "--recursive".to_string(),
@@ -80,9 +88,9 @@ fn test_subcommand_remove() {
     assert!(!cli.verbose);
 
     match cli.command {
-        Some(Commands::Remove(remove_args)) => {
-            assert_eq!(remove_args.name, "old_item");
-            assert!(remove_args.recursive);
+        Some(Commands::Remove(RemoveCommand::All(remove_all_command))) => {
+            assert_eq!(remove_all_command.name, "old_item");
+            assert!(remove_all_command.recursive);
         }
         _ => panic!("Expected Remove subcommand"),
     }

@@ -1,9 +1,9 @@
-use proc_macro::TokenStream;
-use quote::quote;
-use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, LitStr, Meta, Variant};
 use crate::args::{generate_arg_info_for_args, generate_args_field_assignments, generate_args_field_parsers};
 use crate::field::parse_field_attributes;
 use crate::utils::{get_inner_type, to_kebab_case_case};
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, LitStr, Meta, Variant};
 
 #[derive(Default)]
 struct SubcommandVariantAttributes {
@@ -21,10 +21,7 @@ pub fn derive_subcommand_impl(input: DeriveInput) -> Result<TokenStream, Error> 
 
             let expanded = quote! {
                 impl ::no_std_clap_core::parser::Subcommand for #name {
-                    fn from_subcommand(
-                        name: &str,
-                        args: &::no_std_clap_core::arg::parsed_arg::ParsedArgs,
-                    ) -> ::core::result::Result<Self, ::no_std_clap_core::error::ParseError> {
+                    fn from_subcommand(name: &str, args: &::no_std_clap_core::arg::parsed_arg::ParsedArgs) -> ::core::result::Result<Self, ::no_std_clap_core::error::ParseError> {
                         use ::no_std_clap_core::parser::Args;
                         use ::alloc::string::ToString;
 
@@ -69,11 +66,19 @@ pub fn generate_subcommand_definitions(fields: &FieldsNamed, global_arg_defs: &[
 
             let definition = quote! {
                 {
-                    let mut subcommand_infos = <#subcommand_type as Subcommand>::subcommand_info();
+                    let mut subcommand_infos = <#subcommand_type as no_std_clap_core::parser::Subcommand>::subcommand_info();
                     for mut info in subcommand_infos {
                         #(
                             info = info.arg(#global_arg_defs);
                         )*
+
+                        info = info.arg(
+                            ArgInfo::new("help")
+                                .short('h')
+                                .long("help")
+                                .help("Prints help information")
+                                .global()
+                        );
 
                         cmd = cmd.subcommand(info);
                     }
@@ -93,45 +98,74 @@ fn generate_subcommand_match_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro
     for variant in &data_enum.variants {
         let variant_name = &variant.ident;
         let variant_attrs = parse_subcommand_variant_attributes(variant)?;
-
         let command_name = variant_attrs.name.unwrap_or_else(|| to_kebab_case_case(variant_name.to_string()));
+
+        let variant_is_subcommand = enum_variant_is_subcommand(variant);
 
         match &variant.fields {
             Fields::Unit => {
-                // Simple enum variant without fields
-                let arm = quote! {
+                arms.push(quote! {
                     #command_name => Ok(Self::#variant_name),
-                };
-                arms.push(arm);
+                });
             }
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                // Tuple variant with single field (e.g., Add(AddArgs))
-                let field_type = &fields.unnamed.first().unwrap().ty;
-                let arm = quote! {
-                    #command_name => Ok(Self::#variant_name(<#field_type as Args>::from_args(args)?)),
-                };
-                arms.push(arm);
+                let field = &fields.unnamed.first().unwrap();
+                let field_type = &field.ty;
+                let field_attrs = parse_field_attributes(field)?;
+
+                if field_attrs.subcommand || variant_is_subcommand {
+                    // Nested subcommand
+                    arms.push(quote! {
+                        #command_name => {
+                            if let Some((sub_name, sub_args)) = args.subcommand.as_ref() {
+                                Ok(Self::#variant_name(
+                                    <#field_type as ::no_std_clap_core::parser::Subcommand>::from_subcommand(sub_name, sub_args)?
+                                ))
+                            }
+                            else {
+                                let help = <Self as ::no_std_clap_core::parser::Subcommand>::subcommand_info()
+                                    .into_iter()
+                                    .find(|info| info.name == name)
+                                    .unwrap()
+                                    .get_help();
+
+                                Err(::no_std_clap_core::error::ParseError::Help(help))
+                            }
+                        },
+                    });
+                }
+                else {
+                    // Plain Args struct
+                    arms.push(quote! {
+                        #command_name => {
+                            Ok(Self::#variant_name(<#field_type as ::no_std_clap_core::parser::Args>::from_args(args)?))
+                        },
+                    });
+                }
             }
+            Fields::Unnamed(fields) => {
+                let field = &fields.unnamed.first().unwrap();
+                let field_type = &field.ty;
+
+                // Plain Args struct
+                arms.push(quote! {
+                        #command_name => {
+                            Ok(Self::#variant_name(<#field_type as ::no_std_clap_core::parser::Args>::from_args(args)?))
+                        },
+                    });
+            },
             Fields::Named(fields) => {
-                // Struct variant with named fields
                 let field_parsers = generate_args_field_parsers(fields)?;
                 let field_assignments = generate_args_field_assignments(fields)?;
 
-                let arm = quote! {
+                arms.push(quote! {
                     #command_name => {
                         #(#field_parsers)*
                         Ok(Self::#variant_name {
                             #(#field_assignments)*
                         })
                     },
-                };
-                arms.push(arm);
-            }
-            _ => {
-                return Err(Error::new_spanned(
-                    variant,
-                    "Subcommand variants can only have unit, single unnamed field, or named fields"
-                ));
+                });
             }
         }
     }
@@ -146,41 +180,51 @@ fn generate_subcommand_info_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro2
     for variant in &data_enum.variants {
         let variant_name = &variant.ident;
         let variant_attrs = parse_subcommand_variant_attributes(variant)?;
-
-        let command_name = variant_attrs.name.unwrap_or_else(|| {
-            variant_name.to_string().to_lowercase().replace('_', "-")
-        });
-
+        let command_name = variant_attrs.name.unwrap_or_else(|| to_kebab_case_case(variant_name.to_string()));
         let about = variant_attrs.about.as_deref().unwrap_or("");
+
+        let variant_is_subcommand = enum_variant_is_subcommand(variant);
 
         match &variant.fields {
             Fields::Unit => {
-                // Simple enum variant without fields
-                let arm = quote! {
+                arms.push(quote! {
                     SubcommandInfo::new(#command_name).about(#about),
-                };
-                arms.push(arm);
+                });
             }
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                // Tuple variant with single field
-                let field_type = &fields.unnamed.first().unwrap().ty;
-                let arm = quote! {
-                    {
-                        let mut info = SubcommandInfo::new(#command_name).about(#about);
-                        let arg_infos = <#field_type as Args>::arg_info();
-                        for arg_info in arg_infos {
-                            info = info.arg(arg_info);
-                        }
-                        info
-                    },
-                };
-                arms.push(arm);
+                let field = &fields.unnamed.first().unwrap();
+                let field_type = &field.ty;
+                let field_attrs = parse_field_attributes(field)?;
+
+                if field_attrs.subcommand || variant_is_subcommand {
+                    arms.push(quote! {
+                        {
+                            let mut info = SubcommandInfo::new(#command_name).about(#about);
+                            let subs = <#field_type as no_std_clap_core::parser::Subcommand>::subcommand_info();
+                            for sub in subs {
+                                info = info.subcommand(sub);
+                            }
+                            info
+                        },
+                    });
+                }
+                else {
+                    arms.push(quote! {
+                        {
+                            let mut info = SubcommandInfo::new(#command_name).about(#about);
+                            let arg_infos = <#field_type as Args>::arg_info();
+                            for arg_info in arg_infos {
+                                info = info.arg(arg_info);
+                            }
+                            info
+                        },
+                    });
+                }
             }
             Fields::Named(fields) => {
-                // Struct variant with named fields
                 let arg_info_generation = generate_arg_info_for_args(fields)?;
 
-                let arm = quote! {
+                arms.push(quote! {
                     {
                         let mut info = SubcommandInfo::new(#command_name).about(#about);
                         let arg_infos = ::alloc::vec![#(#arg_info_generation),*];
@@ -189,13 +233,12 @@ fn generate_subcommand_info_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro2
                         }
                         info
                     },
-                };
-                arms.push(arm);
+                });
             }
             _ => {
                 return Err(Error::new_spanned(
                     variant,
-                    "Subcommand variants can only have unit, single unnamed field, or named fields"
+                    "Subcommand variants can only have unit, single unnamed field, or named fields",
                 ));
             }
         }
@@ -203,6 +246,7 @@ fn generate_subcommand_info_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro2
 
     Ok(arms)
 }
+
 
 fn parse_subcommand_variant_attributes(variant: &Variant) -> Result<SubcommandVariantAttributes, Error> {
     let mut variant_attrs = SubcommandVariantAttributes::default();
@@ -226,7 +270,57 @@ fn parse_subcommand_variant_attributes(variant: &Variant) -> Result<SubcommandVa
                 _ => {}
             }
         }
+        else if attr.path().is_ident("doc") {
+            // Gather doc comments into about (if not explicitly set)
+            if variant_attrs.about.is_none() {
+                if let Meta::NameValue(meta_name_value) = &attr.meta {
+                    if let syn::Expr::Lit(expr_lit) = &meta_name_value.value {
+                        if let syn::Lit::Str(lit_str) = &expr_lit.lit {
+                            // Accumulate multiple lines into one string
+                            let line = lit_str.value();
+                            let trimmed = line.trim();
+                            if !trimmed.is_empty() {
+                                match &mut variant_attrs.about {
+                                    Some(existing) => {
+                                        existing.push(' ');
+                                        existing.push_str(trimmed);
+                                    }
+                                    None => {
+                                        variant_attrs.about = Some(trimmed.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Ok(variant_attrs)
+}
+
+fn enum_variant_is_subcommand(variant: &Variant) -> bool{
+    variant.attrs.iter().any(|attr| {
+        let mut is_subcommand = false;
+        if attr.path().is_ident("command") {
+            match &attr.meta {
+                Meta::List(_) => {
+                    attr.parse_nested_meta(|meta| {
+                        if meta.path.is_ident("subcommand") {
+                            is_subcommand = true;
+                        }
+
+                        Ok(())
+                    }).ok();
+                }
+                Meta::Path(_) => {
+                    is_subcommand = true;
+                },
+                _ => {}
+            }
+        }
+
+        is_subcommand
+    })
 }

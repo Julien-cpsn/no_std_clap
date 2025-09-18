@@ -19,7 +19,7 @@ struct TestArgs {
 // Manual implementation of what the derive macro would generate
 impl Parser for TestArgs {
     fn parse_args(args: &[String]) -> Result<Self, ParseError> {
-        let cmd = Command::new("test")
+        let cmd = Command::new(Some("test"), Some("0.1.0"))
             .arg(ArgInfo::new("name").long("name").short('n').required())
             .arg(ArgInfo::new("count").long("count").short('c').required())
             .arg(ArgInfo::new("verbose").long("verbose").short('v').global())

@@ -213,11 +213,16 @@ pub fn generate_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macro
                         None => None,
                     },
                 }
-            } else {
+            }
+            else {
                 quote! {
                     #field_name: {
-                        let (name, args) = #var_name.ok_or(::no_std_clap_core::error::ParseError::MissingSubcommand)?;
-                        <#field_type as Subcommand>::from_subcommand(name, args)?
+                        if let Some((name, args)) = #var_name {
+                            <#field_type as Subcommand>::from_subcommand(name, args)?
+                        }
+                        else {
+                            return Err(::no_std_clap_core::error::ParseError::UnknownSubcommand);
+                        }
                     },
                 }
             };
