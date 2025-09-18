@@ -50,7 +50,7 @@ pub fn derive_enum_values_arg_impl(input: DeriveInput) -> Result<TokenStream, Er
             fn from_arg(value: &str) -> Result<Self, ::no_std_clap_core::error::ParseError> {
                 match value {
                     #(#arms)*
-                    other => Err(::no_std_clap_core::error::ParseError::UnknownEnumVariant(other.to_string(), ::alloc::string::String::from(#variant_name_stringed))),
+                    other => Err(::no_std_clap_core::error::ParseError::UnknownEnumVariant(::alloc::string::String::from(other), ::alloc::string::String::from(#variant_name_stringed))),
                 }
             }
         }

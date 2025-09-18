@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 pub struct ParsedArgs {
     args: BTreeMap<String, Vec<String>>,
+    pub counts: BTreeMap<String, usize>,
     pub subcommand: Option<(String, Box<ParsedArgs>)>,
 }
 
@@ -12,6 +13,7 @@ impl ParsedArgs {
     pub fn new() -> Self {
         Self {
             args: BTreeMap::new(),
+            counts: BTreeMap::new(),
             subcommand: None,
         }
     }
@@ -21,10 +23,24 @@ impl ParsedArgs {
     }
 
     pub fn insert_flag(&mut self, key: String) {
-        self.args.entry(key).or_insert_with(Vec::new);
+        self.args.entry(key).or_insert_with(Vec::new).push(String::new());
+    }
+
+    pub fn increment(&mut self, name: String) {
+        let entry = self.counts.entry(name).or_insert(0);
+        *entry += 1;
+    }
+
+    pub fn count(&self, key: &str) -> usize {
+        self.counts.get(key).map(|v| *v).unwrap_or(0usize)
     }
 
     pub fn set_subcommand(&mut self, name: String, args: ParsedArgs) {
+        for (key, count) in &args.counts {
+            let entry = self.counts.entry(key.clone()).or_insert(0);
+            *entry += count;
+        }
+
         self.subcommand = Some((name, Box::new(args)));
     }
 

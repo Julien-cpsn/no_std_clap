@@ -13,6 +13,7 @@ pub struct FieldAttributes {
     pub skip: bool,
     pub subcommand: bool,
     pub global: bool,
+    pub count: bool
 }
 
 pub fn parse_field_attributes(field: &Field) -> Result<FieldAttributes, Error> {
@@ -72,6 +73,9 @@ pub fn parse_field_attributes(field: &Field) -> Result<FieldAttributes, Error> {
                         }
                         else if meta.path.is_ident("global") {
                             field_attrs.global = true;
+                        }
+                        else if meta.path.is_ident("count") {
+                            field_attrs.count = true;
                         }
                         Ok(())
                     })?;
@@ -138,7 +142,12 @@ pub fn generate_field_parsers(fields: &FieldsNamed) -> Result<Vec<proc_macro2::T
             let is_vec = is_vec_type(&field.ty);
             let is_bool = is_bool_type(&field.ty);
 
-            let parser = if is_bool {
+            let parser = if field_attrs.count {
+                quote! {
+                    let #var_name = parsed.count(#field_name_str);
+                }
+            }
+            else if is_bool {
                 // Boolean flags don't take values
                 quote! {
                     let #var_name = parsed.contains_key(#field_name_str);
@@ -166,10 +175,10 @@ pub fn generate_field_parsers(fields: &FieldsNamed) -> Result<Vec<proc_macro2::T
                 }
                 else {
                     quote! {
-                    let #var_name = parsed.get(#field_name_str)
-                        .map(|s| s.as_str())
-                        .unwrap_or(#default);
-                }
+                        let #var_name = parsed.get(#field_name_str)
+                            .map(|s| s.as_str())
+                            .unwrap_or(#default);
+                    }
                 }
             }
             else {
@@ -233,7 +242,7 @@ pub fn generate_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macro
             let is_vec = is_vec_type(field_type);
             let is_bool = is_bool_type(field_type);
 
-            let mut assignment = if is_bool {
+            let mut assignment = if is_bool || field_attrs.count {
                 quote! {
                     #field_name: #var_name
                 }

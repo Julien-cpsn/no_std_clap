@@ -39,6 +39,12 @@ impl FromArg for i64 {
     }
 }
 
+impl FromArg for isize {
+    fn from_arg(arg: &str) -> Result<Self, ParseError> {
+        arg.parse().map_err(|_| ParseError::InvalidValue(format!("Cannot parse '{}' as isize", arg)))
+    }
+}
+
 impl FromArg for u8 {
     fn from_arg(arg: &str) -> Result<Self, ParseError> {
         arg.parse().map_err(|_| ParseError::InvalidValue(format!("Cannot parse '{}' as u8", arg)))
@@ -60,6 +66,12 @@ impl FromArg for u32 {
 impl FromArg for u64 {
     fn from_arg(arg: &str) -> Result<Self, ParseError> {
         arg.parse().map_err(|_| ParseError::InvalidValue(format!("Cannot parse '{}' as u64", arg)))
+    }
+}
+
+impl FromArg for usize {
+    fn from_arg(arg: &str) -> Result<Self, ParseError> {
+        arg.parse().map_err(|_| ParseError::InvalidValue(format!("Cannot parse '{}' as usize", arg)))
     }
 }
 
@@ -95,7 +107,8 @@ impl<T: FromArg> FromArg for Option<T> {
 // Vec types for multiple values
 impl<T: FromArg> FromArg for Vec<T> {
     fn from_arg(arg: &str) -> Result<Self, ParseError> {
-        arg.split(',')
+        arg
+            .split(',')
             .map(|s| T::from_arg(s.trim()))
             .collect()
     }

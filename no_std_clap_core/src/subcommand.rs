@@ -45,13 +45,11 @@ impl SubcommandInfo {
         let mut out = String::new();
         
         if let Some(about) = &self.about {
-            write!(out, "{}", about).unwrap();
+            writeln!(out, "{}", about).unwrap();
+            writeln!(out).unwrap();
         }
 
-        writeln!(out).unwrap();
-        writeln!(out).unwrap();
-
-        get_help(&mut out, None, &self.args, &self.subcommands);
+        get_help(&mut out, None, &self.args, &Vec::new(), &self.subcommands);
 
         out
     }

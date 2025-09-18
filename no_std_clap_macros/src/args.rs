@@ -116,6 +116,12 @@ pub fn generate_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_macro2:
             });
         }
 
+        if field_attrs.count {
+            arg_info_def.extend(quote! {
+                .count()
+            });
+        }
+
         definitions.push(arg_info_def);
     }
 
@@ -152,7 +158,8 @@ pub fn generate_global_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_
             arg_info_def.extend(quote! {
                 .long(#long)
             });
-        } else if !is_bool {
+        }
+        else if !is_bool {
             let long_name = field_name_str.replace('_', "-");
             arg_info_def.extend(quote! {
                 .long(&#long_name)
@@ -174,6 +181,12 @@ pub fn generate_global_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_
         if field_attrs.multiple || is_vec {
             arg_info_def.extend(quote! {
                 .multiple()
+            });
+        }
+
+        if field_attrs.count {
+            arg_info_def.extend(quote! {
+                .count()
             });
         }
 
@@ -247,6 +260,12 @@ pub fn generate_arg_info_for_args(fields: &FieldsNamed) -> Result<Vec<proc_macro
             });
         }
 
+        if field_attrs.count {
+            arg_info_def.extend(quote! {
+                .count()
+            });
+        }
+
         arg_info_def.extend(quote! { , });
 
         arg_infos.push(arg_info_def);
@@ -274,7 +293,12 @@ pub fn generate_args_field_parsers(fields: &FieldsNamed) -> Result<Vec<proc_macr
         let is_vec = is_vec_type(&field.ty);
         let is_bool = is_bool_type(&field.ty);
 
-        let parser = if is_bool {
+        let parser = if field_attrs.count {
+            quote! {
+                let #var_name = args.count(#field_name_str);
+            }
+        }
+        else if is_bool {
             quote! {
                 let #var_name = args.contains_key(#field_name_str);
             }
@@ -330,9 +354,15 @@ pub fn generate_args_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_
         let is_optional = is_option_type(field_type);
         let is_vec = is_vec_type(field_type);
         let is_bool = is_bool_type(field_type);
+        let is_count = field_attrs.count;
 
         let assignment = if is_bool {
             quote! { #field_name: #var_name }
+        }
+        else if is_count {
+            quote! {
+                #field_name: #var_name.count()
+            }
         }
         else if is_vec {
             let inner_type = get_inner_type(field_type).unwrap_or(field_type);

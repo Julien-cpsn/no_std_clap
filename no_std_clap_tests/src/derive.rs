@@ -12,10 +12,10 @@ struct Args {
     name: String,
 
     #[arg(short, long, required)]
-    count: i32,
+    number: i32,
 
-    #[arg(short, long, global)]
-    verbose: bool,
+    #[arg(short, long, count, global)]
+    verbose: usize,
 
     #[arg(short, long)]
     list: Vec<u8>,
@@ -35,22 +35,24 @@ fn test_derive_parsing() {
     let args = vec![
         "--name".to_string(),
         "test".to_string(),
-        "--count".to_string(),
+        "--number".to_string(),
         "42".to_string(),
-        "--verbose".to_string(),
         "--list".to_string(),
         "5".to_string(),
+        "--list".to_string(),
+        "6".to_string(),
+        "--verbose".to_string(),
     ];
 
     let result_1 = Args::parse_args(&args).unwrap();
     assert_eq!(result_1.name, "test");
-    assert_eq!(result_1.count, 42);
-    assert!(result_1.verbose);
-    assert_eq!(result_1.list, vec![5]);
+    assert_eq!(result_1.number, 42);
+    assert_eq!(result_1.verbose, 1);
+    assert_eq!(result_1.list, vec![5, 6]);
     assert_eq!(result_1.optional, None);
     assert_eq!(result_1.optional_with_default, Some(3));
 
-    let result_2 = Args::parse_str("--name test --count 42 --verbose true --list 5").unwrap();
+    let result_2 = Args::parse_str("--name test --number 42 -v --list 5 --list 6").unwrap();
     assert_eq!(result_1, result_2);
 }
 
@@ -60,7 +62,7 @@ fn test_help_parsing() {
     let args = vec![
         "--name".to_string(),
         "test".to_string(),
-        "--count".to_string(),
+        "--number".to_string(),
         "42".to_string(),
         "--list".to_string(),
         "5".to_string(),

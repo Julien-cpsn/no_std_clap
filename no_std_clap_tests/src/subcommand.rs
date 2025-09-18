@@ -9,13 +9,13 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    #[arg(short, long, global)]
-    verbose: bool
+    #[arg(short, count, global)]
+    verbose: usize
 }
 
 #[derive(Subcommand, Debug, PartialEq)]
 enum Commands {
-    #[command(about = "Add a new item")]
+    /// Add a new item
     Add(AddArgs),
 
     #[command(subcommand, about = "Remove an item")]
@@ -54,16 +54,15 @@ struct RemoveAllCommand {
 #[test]
 fn test_subcommand_add() {
     let args = vec![
-        "--verbose".to_string(),
-        "true".to_string(),
         "add".to_string(),
         "--name".to_string(),
         "test_item".to_string(),
         "--force".to_string(),
+        "-vvv".to_string(),
     ];
 
     let cli = Cli::parse_args(&args).unwrap();
-    assert!(cli.verbose);
+    assert_eq!(cli.verbose, 3);
 
     match cli.command {
         Some(Commands::Add(add_args)) => {
@@ -85,7 +84,7 @@ fn test_subcommand_remove() {
     ];
 
     let cli = Cli::parse_args(&args).unwrap();
-    assert!(!cli.verbose);
+    assert_eq!(cli.verbose, 0);
 
     match cli.command {
         Some(Commands::Remove(RemoveCommand::All(remove_all_command))) => {
@@ -111,10 +110,10 @@ fn test_subcommand_list() {
 #[test]
 fn test_no_subcommand() {
     let args = vec![
-        "--verbose".to_string(),
+        "-v".to_string(),
     ];
 
     let cli = Cli::parse_args(&args).unwrap();
-    assert!(cli.verbose);
     assert_eq!(cli.command, None);
+    assert_eq!(cli.verbose, 1);
 }
