@@ -6,11 +6,11 @@ use no_std_clap_macros::{Args, Parser, Subcommand};
 #[derive(Parser, Debug, PartialEq)]
 #[clap(name = "myapp", version = "1.0", about = "A sample CLI app")]
 struct Cli {
-    #[arg(short, long)]
-    verbose: bool,
-
     #[command(subcommand)]
     command: Option<Commands>,
+
+    #[arg(short, long, global)]
+    verbose: bool
 }
 
 #[derive(Subcommand, Debug, PartialEq)]

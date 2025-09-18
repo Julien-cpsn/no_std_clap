@@ -13,15 +13,17 @@ struct Args {
     #[arg(short, long, required)]
     count: i32,
 
-    #[arg(short, long)]
+    #[arg(short, long, global)]
     verbose: bool,
 
     #[arg(short, long)]
     list: Vec<u8>,
 
-    // or default_value = "Default"
     #[arg(long)]
-    optional: Option<String>,
+    optional: Option<u16>,
+
+    #[arg(long, default_value = "3")]
+    optional_with_default: Option<u16>,
 
     #[arg(skip)]
     computed: String, // Will use Default::default()
@@ -35,7 +37,6 @@ fn test_derive_parsing() {
         "--count".to_string(),
         "42".to_string(),
         "--verbose".to_string(),
-        "true".to_string(),
         "--list".to_string(),
         "5".to_string(),
     ];
@@ -46,6 +47,7 @@ fn test_derive_parsing() {
     assert!(result_1.verbose);
     assert_eq!(result_1.list, vec![5]);
     assert_eq!(result_1.optional, None);
+    assert_eq!(result_1.optional_with_default, Some(3));
 
     let result_2 = Args::parse_str("--name test --count 42 --verbose true --list 5").unwrap();
     assert_eq!(result_1, result_2);

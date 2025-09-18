@@ -22,7 +22,7 @@ impl Parser for TestArgs {
         let cmd = Command::new("test")
             .arg(ArgInfo::new("name").long("name").short('n').required())
             .arg(ArgInfo::new("count").long("count").short('c').required())
-            .arg(ArgInfo::new("verbose").long("verbose").short('v'))
+            .arg(ArgInfo::new("verbose").long("verbose").short('v').global())
             .arg(ArgInfo::new("list").long("list").short('l').multiple())
             .arg(ArgInfo::new("optional").long("optional").short('o'));
 
@@ -65,10 +65,9 @@ fn test_basic_parsing() {
         "test".to_string(),
         "--count".to_string(),
         "42".to_string(),
-        "--verbose".to_string(),
-        "true".to_string(),
         "--list".to_string(),
         "5".to_string(),
+        "--verbose".to_string(),
     ];
 
     let result_1 = TestArgs::parse_args(&args).unwrap();
@@ -78,6 +77,6 @@ fn test_basic_parsing() {
     assert_eq!(result_1.list, vec![5]);
     assert_eq!(result_1.optional, None);
 
-    let result_2 = TestArgs::parse_str("--name test --count 42 --verbose true --list 5").unwrap();
+    let result_2 = TestArgs::parse_str("--name test --count 42 --list 5 --verbose").unwrap();
     assert_eq!(result_1, result_2);
 }

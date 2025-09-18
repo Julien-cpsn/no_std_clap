@@ -15,10 +15,21 @@ pub trait Parser: Sized {
         T: Into<String>,
     {
         let args: Vec<String> = args.into_iter().map(|s| s.into()).collect();
+
+        if args.is_empty() {
+            return Err(ParseError::EmptyInput);
+        }
+
         Self::parse_args(&args)
     }
 
     fn parse_str(input: &str) -> Result<Self, ParseError> {
+        let input = input.trim();
+
+        if input.is_empty() {
+            return Err(ParseError::EmptyInput);
+        }
+
         let args = parse_command_line(input)?;
         Self::parse_args(&args)
     }

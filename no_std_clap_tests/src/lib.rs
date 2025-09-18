@@ -6,5 +6,7 @@ mod basic;
 mod derive;
 #[cfg(test)]
 mod subcommand;
+#[cfg(test)]
+mod enum_derive;
 
 extern crate alloc;

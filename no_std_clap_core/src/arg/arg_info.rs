@@ -9,6 +9,7 @@ pub struct ArgInfo {
     pub help: Option<String>,
     pub required: bool,
     pub multiple: bool,
+    pub global: bool,
 }
 
 impl ArgInfo {
@@ -20,6 +21,7 @@ impl ArgInfo {
             help: None,
             required: false,
             multiple: false,
+            global: false,
         }
     }
 
@@ -45,6 +47,11 @@ impl ArgInfo {
 
     pub fn multiple(mut self) -> Self {
         self.multiple = true;
+        self
+    }
+
+    pub fn global(mut self) -> Self {
+        self.global = true;
         self
     }
 }
