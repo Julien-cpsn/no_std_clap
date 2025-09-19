@@ -78,10 +78,13 @@ impl Command {
                     // Stop parsing after subcommand
                     break;
                 }
+                else if let Some(arg_info) = current_args.iter().find(|a| a.short.is_none() && a.long.is_none()) {
+                    // Positional argument
+                    result.insert(arg_info.name.clone(), arg.clone());
+                }
                 else {
-                    // Unknown positional argument, skip
-                    i += 1;
-                    continue;
+                    // Unknown positional argument -> error or ignore
+                    return Err(ParseError::UnknownArgument(arg.clone()));
                 }
             }
 

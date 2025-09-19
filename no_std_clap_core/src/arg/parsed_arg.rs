@@ -44,7 +44,6 @@ impl ParsedArgs {
         self.subcommand = Some((name, Box::new(args)));
     }
 
-    // Get the first value for an argument (for single-value arguments)
     pub fn get(&self, key: &str) -> Option<&String> {
         self.args.get(key)?.first()
     }

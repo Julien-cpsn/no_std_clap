@@ -65,7 +65,6 @@ pub fn generate_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_macro2:
         }
 
         let field_name_str = field_name.to_string();
-        let is_bool = is_bool_type(&field.ty);
         let is_vec = is_vec_type(&field.ty);
 
         let mut arg_info_def = quote! {
@@ -82,13 +81,6 @@ pub fn generate_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_macro2:
         if let Some(long) = &field_attrs.long {
             arg_info_def.extend(quote! {
                 .long(#long)
-            });
-        }
-        else if !is_bool {
-            // Auto-generate long flag from field name
-            let long_name = field_name_str.replace('_', "-");
-            arg_info_def.extend(quote! {
-                .long(&#long_name)
             });
         }
 
@@ -140,7 +132,6 @@ pub fn generate_global_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_
         }
 
         let field_name_str = field_name.to_string();
-        let is_bool = is_bool_type(&field.ty);
         let is_vec = is_vec_type(&field.ty);
 
         let mut arg_info_def = quote! {
@@ -157,12 +148,6 @@ pub fn generate_global_arg_definitions(fields: &FieldsNamed) -> Result<Vec<proc_
         if let Some(long) = &field_attrs.long {
             arg_info_def.extend(quote! {
                 .long(#long)
-            });
-        }
-        else if !is_bool {
-            let long_name = field_name_str.replace('_', "-");
-            arg_info_def.extend(quote! {
-                .long(&#long_name)
             });
         }
 
@@ -215,7 +200,6 @@ pub fn generate_arg_info_for_args(fields: &FieldsNamed) -> Result<Vec<proc_macro
         }
 
         let field_name_str = field_name.to_string();
-        let is_bool = is_bool_type(&field.ty);
         let is_vec = is_vec_type(&field.ty);
 
         let mut arg_info_def = quote! {
@@ -232,13 +216,6 @@ pub fn generate_arg_info_for_args(fields: &FieldsNamed) -> Result<Vec<proc_macro
         if let Some(long) = &field_attrs.long {
             arg_info_def.extend(quote! {
                 .long(#long)
-            });
-        }
-        else if !is_bool {
-            // Auto-generate long flag from field name
-            let long_name = field_name_str.replace('_', "-");
-            arg_info_def.extend(quote! {
-                .long(&#long_name)
             });
         }
 
