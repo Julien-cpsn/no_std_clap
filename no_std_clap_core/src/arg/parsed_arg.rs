@@ -4,7 +4,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 pub struct ParsedArgs {
-    args: BTreeMap<String, Vec<String>>,
+    pub args: BTreeMap<String, Vec<String>>,
     pub counts: BTreeMap<String, usize>,
     pub subcommand: Option<(String, Box<ParsedArgs>)>,
 }

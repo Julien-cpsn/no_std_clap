@@ -1,3 +1,4 @@
+use alloc::format;
 use crate::arg::arg_info::ArgInfo;
 use crate::arg::parsed_arg::ParsedArgs;
 use crate::error::ParseError;
@@ -41,15 +42,20 @@ impl SubcommandInfo {
         self
     }
 
-    pub fn get_help(&self) -> String {
+    pub fn get_help(&self, parents_name: Option<String>) -> String {
         let mut out = String::new();
-        
+
+        let name = match parents_name {
+            Some(parents_name) => format!("{} {}", parents_name, self.name),
+            None => self.name.clone(),
+        };
+
         if let Some(about) = &self.about {
             writeln!(out, "{}", about).unwrap();
             writeln!(out).unwrap();
         }
 
-        get_help(&mut out, None, &self.args, &Vec::new(), &self.subcommands);
+        get_help(&mut out, Some(&name), &self.args, &Vec::new(), &self.subcommands);
 
         out
     }
@@ -57,8 +63,8 @@ impl SubcommandInfo {
 
 // Implement Subcommand for Option<T> where T: Subcommand
 impl<T: Subcommand> Subcommand for Option<T> {
-    fn from_subcommand(name: &str, args: &ParsedArgs) -> Result<Self, ParseError> {
-        T::from_subcommand(name, args).map(Some)
+    fn from_subcommand(name: &str, parents_name: Option<String>, args: &ParsedArgs) -> Result<Self, ParseError> {
+        T::from_subcommand(name, parents_name, args).map(Some)
     }
 
     fn subcommand_info() -> Vec<SubcommandInfo> {

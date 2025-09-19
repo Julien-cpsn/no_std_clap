@@ -106,9 +106,6 @@ impl Command {
                     else {
                         // Value argument
                         i += 1;
-                        if i >= args.len() {
-                            return Err(ParseError::MissingArgument(arg_name.to_string()));
-                        }
                         result.insert(arg_info.name.clone(), args[i].clone());
                     }
                 }
@@ -134,9 +131,6 @@ impl Command {
                             }
                             else {
                                 i += 1;
-                                if i >= args.len() {
-                                    return Err(ParseError::MissingArgument(short_char.to_string()));
-                                }
                                 result.insert(arg_info.name.clone(), args[i].clone());
                             }
                             // stop further processing of this cluster
@@ -150,13 +144,6 @@ impl Command {
             }
 
             i += 1;
-        }
-
-        // Check required arguments
-        for arg_info in current_args.iter().chain(global_args.iter()) {
-            if arg_info.required && !result.contains_key(&arg_info.name) {
-                return Err(ParseError::MissingArgument(arg_info.name.clone()));
-            }
         }
 
         Ok(result)

@@ -1,6 +1,6 @@
 use crate::utils::{get_inner_type, is_bool_type, is_option_type, is_vec_type};
 use quote::{format_ident, quote};
-use syn::{Error, Expr, Field, FieldsNamed, LitStr, Meta};
+use syn::{Error, Expr, Field, FieldsNamed, Lit, LitStr, Meta};
 
 #[derive(Default)]
 pub struct FieldAttributes {
@@ -105,6 +105,31 @@ pub fn parse_field_attributes(field: &Field) -> Result<FieldAttributes, Error> {
                     field_attrs.subcommand = true;
                 }
                 _ => {}
+            }
+        }
+        else if attr.path().is_ident("doc") {
+            // Gather doc comments into about (if not explicitly set)
+            if field_attrs.help.is_none() {
+                if let Meta::NameValue(meta_name_value) = &attr.meta {
+                    if let Expr::Lit(expr_lit) = &meta_name_value.value {
+                        if let Lit::Str(lit_str) = &expr_lit.lit {
+                            // Accumulate multiple lines into one string
+                            let line = lit_str.value();
+                            let trimmed = line.trim();
+                            if !trimmed.is_empty() {
+                                match &mut field_attrs.help {
+                                    Some(existing) => {
+                                        existing.push(' ');
+                                        existing.push_str(trimmed);
+                                    }
+                                    None => {
+                                        field_attrs.help = Some(trimmed.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -218,7 +243,9 @@ pub fn generate_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macro
             let assignment = if is_optional {
                 quote! {
                     #field_name: match #var_name {
-                        Some((name, args)) => <#field_type as Subcommand>::from_subcommand(name, args)?,
+                        Some((name, args)) => {
+                            <#field_type as Subcommand>::from_subcommand(name, None, args)?
+                        },
                         None => None,
                     },
                 }
@@ -227,7 +254,7 @@ pub fn generate_field_assignments(fields: &FieldsNamed) -> Result<Vec<proc_macro
                 quote! {
                     #field_name: {
                         if let Some((name, args)) = #var_name {
-                            <#field_type as Subcommand>::from_subcommand(name, args)?
+                            <#field_type as Subcommand>::from_subcommand(name, None, args)?
                         }
                         else {
                             return Err(::no_std_clap_core::error::ParseError::UnknownSubcommand);

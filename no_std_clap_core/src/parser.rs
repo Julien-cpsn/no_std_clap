@@ -37,7 +37,7 @@ pub trait Parser: Sized {
 
 // Trait for types that can be used as subcommands
 pub trait Subcommand: Sized {
-    fn from_subcommand(name: &str, args: &ParsedArgs) -> Result<Self, ParseError>;
+    fn from_subcommand(name: &str, parents_name: Option<String>, args: &ParsedArgs) -> Result<Self, ParseError>;
     fn subcommand_info() -> Vec<SubcommandInfo>;
 }
 
@@ -45,6 +45,7 @@ pub trait Subcommand: Sized {
 pub trait Args: Sized {
     fn from_args(args: &ParsedArgs) -> Result<Self, ParseError>;
     fn arg_info() -> Vec<ArgInfo>;
+    fn get_help(name: String, parents_name: Option<String>, help: Option<String>) -> String;
 }
 
 // Command line string parsing function

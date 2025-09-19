@@ -18,9 +18,7 @@ pub fn derive_args_impl(input: DeriveInput) -> Result<TokenStream, Error> {
 
                     let expanded = quote! {
                         impl ::no_std_clap_core::parser::Args for #name {
-                            fn from_args(
-                                parsed: &::no_std_clap_core::arg::parsed_arg::ParsedArgs,
-                            ) -> ::core::result::Result<Self, ::no_std_clap_core::error::ParseError> {
+                            fn from_args(parsed: &::no_std_clap_core::arg::parsed_arg::ParsedArgs) -> ::core::result::Result<Self, ::no_std_clap_core::error::ParseError> {
                                 use ::no_std_clap_core::arg::from_arg::FromArg;
                                 use ::alloc::string::ToString;
 
@@ -37,6 +35,26 @@ pub fn derive_args_impl(input: DeriveInput) -> Result<TokenStream, Error> {
                                 ::alloc::vec![
                                     #(#arg_info_generation)*
                                 ]
+                            }
+
+                            fn get_help(name: ::alloc::string::String, parents_name: Option<::alloc::string::String>, help: Option<::alloc::string::String>) -> ::alloc::string::String {
+                                use core::fmt::Write;
+                                let mut out = ::alloc::string::String::new();
+                                let arg_infos = Self::arg_info();
+
+                                if let Some(help) = help {
+                                    writeln!(out, "{}", help).unwrap();
+                                    writeln!(out).unwrap();
+                                }
+
+                                let name = match parents_name {
+                                    Some(parents_name) => ::alloc::format!("{} {}", parents_name, name),
+                                    None => name,
+                                };
+
+                                ::no_std_clap_core::help::get_help(&mut out, Some(&name), &arg_infos, &::alloc::vec::Vec::new(), &::alloc::vec::Vec::new());
+
+                                out
                             }
                         }
                     };

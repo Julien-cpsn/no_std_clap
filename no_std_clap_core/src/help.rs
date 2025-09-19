@@ -10,7 +10,14 @@ pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, gl
         write!(out, "Usage: {}", name).unwrap();
     }
 
-    if name.is_some() && !args.is_empty() {
+    let positional_args: Vec<&ArgInfo> = args.iter().filter(|a| a.short.is_none() && a.long.is_none()).collect();
+    let flag_args: Vec<&ArgInfo> = args.iter().filter(|a| a.short.is_some() || a.long.is_some()).collect();
+
+    for arg in &positional_args {
+        write!(out, " <{}>", arg.name.to_uppercase()).unwrap();
+    }
+
+    if name.is_some() && (!flag_args.is_empty() || !global_args.is_empty()) {
         write!(out, " [OPTIONS]").unwrap()
     }
 
@@ -18,13 +25,29 @@ pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, gl
         write!(out, " [SUBCOMMAND]").unwrap();
     }
 
-    if name.is_some() && (!args.is_empty() || !subcommands.is_empty()) {
+    if name.is_some() && (!positional_args.is_empty() || !flag_args.is_empty() || !subcommands.is_empty()) {
+        writeln!(out).unwrap();
         writeln!(out).unwrap();
     }
 
-    if !args.is_empty() || !global_args.is_empty() {
+    if !positional_args.is_empty() {
+        writeln!(out, "Arguments:").unwrap();
+        for arg in positional_args {
+            let mut line = String::new();
+
+            write!(line, "{}", arg.name.to_uppercase()).unwrap();
+
+            if let Some(help) = &arg.help {
+                line.push_str(&format!("\t\t\t{}", help));
+            }
+
+            writeln!(out, "  {}", line).unwrap();
+        }
+    }
+
+    if !flag_args.is_empty() || !global_args.is_empty() {
         writeln!(out, "Options:").unwrap();
-        for arg in args {
+        for arg in flag_args {
             let mut line = String::new();
 
             if let Some(short) = arg.short {

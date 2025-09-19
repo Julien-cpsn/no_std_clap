@@ -3,7 +3,7 @@ use crate::field::parse_field_attributes;
 use crate::utils::{get_inner_type, to_kebab_case_case};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, LitStr, Meta, Variant};
+use syn::{Data, DataEnum, DeriveInput, Error, Expr, Fields, FieldsNamed, Lit, LitStr, Meta, Variant};
 
 #[derive(Default)]
 struct SubcommandVariantAttributes {
@@ -21,13 +21,12 @@ pub fn derive_subcommand_impl(input: DeriveInput) -> Result<TokenStream, Error> 
 
             let expanded = quote! {
                 impl ::no_std_clap_core::parser::Subcommand for #name {
-                    fn from_subcommand(name: &str, args: &::no_std_clap_core::arg::parsed_arg::ParsedArgs) -> ::core::result::Result<Self, ::no_std_clap_core::error::ParseError> {
+                    fn from_subcommand(name: &str, parents_name: Option<::alloc::string::String>, args: &::no_std_clap_core::arg::parsed_arg::ParsedArgs) -> ::core::result::Result<Self, ::no_std_clap_core::error::ParseError> {
                         use ::no_std_clap_core::parser::Args;
-                        use ::alloc::string::ToString;
 
                         match name {
                             #(#match_arms)*
-                            _ => Err(::no_std_clap_core::error::ParseError::UnknownArgument(name.to_string())),
+                            _ => Err(::no_std_clap_core::error::ParseError::UnknownArgument(::alloc::string::String::from(name))),
                         }
                     }
 
@@ -118,8 +117,13 @@ fn generate_subcommand_match_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro
                     arms.push(quote! {
                         #command_name => {
                             if let Some((sub_name, sub_args)) = args.subcommand.as_ref() {
+                                let parents_name = match parents_name {
+                                    Some(parents_name) => ::alloc::format!("{} {}", parents_name, name),
+                                    None => ::alloc::string::String::from(name)
+                                };
+
                                 Ok(Self::#variant_name(
-                                    <#field_type as ::no_std_clap_core::parser::Subcommand>::from_subcommand(sub_name, sub_args)?
+                                    <#field_type as ::no_std_clap_core::parser::Subcommand>::from_subcommand(sub_name, Some(parents_name), sub_args)?
                                 ))
                             }
                             else {
@@ -127,7 +131,7 @@ fn generate_subcommand_match_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro
                                     .into_iter()
                                     .find(|info| info.name == name)
                                     .unwrap()
-                                    .get_help();
+                                    .get_help(parents_name);
 
                                 Err(::no_std_clap_core::error::ParseError::Help(help))
                             }
@@ -135,9 +139,18 @@ fn generate_subcommand_match_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro
                     });
                 }
                 else {
+                    let about = match variant_attrs.about {
+                        Some(about) => quote! { Some(::alloc::string::String::from(#about)) },
+                        None => quote! { None }
+                    };
+
                     // Plain Args struct
                     arms.push(quote! {
-                        #command_name => {
+                        #command_name => if args.args.is_empty() || args.args.contains_key("help") {
+                            let help = <#field_type as ::no_std_clap_core::parser::Args>::get_help(::alloc::string::String::from(name), parents_name, #about);
+                            Err(::no_std_clap_core::error::ParseError::Help(help))
+                        }
+                        else {
                             Ok(Self::#variant_name(<#field_type as ::no_std_clap_core::parser::Args>::from_args(args)?))
                         },
                     });
@@ -147,12 +160,21 @@ fn generate_subcommand_match_arms(data_enum: &DataEnum) -> Result<Vec<proc_macro
                 let field = &fields.unnamed.first().unwrap();
                 let field_type = &field.ty;
 
+                let about = match variant_attrs.about {
+                    Some(about) => quote! { Some(::alloc::string::String::from(#about)) },
+                    None => quote! { None }
+                };
+
                 // Plain Args struct
                 arms.push(quote! {
-                        #command_name => {
-                            Ok(Self::#variant_name(<#field_type as ::no_std_clap_core::parser::Args>::from_args(args)?))
-                        },
-                    });
+                    #command_name => if args.args.is_empty() || args.args.contains_key("help") {
+                        let help = <#field_type as ::no_std_clap_core::parser::Args>::get_help(::alloc::string::String::from(name), parents_name, #about);
+                        Err(::no_std_clap_core::error::ParseError::Help(help))
+                    }
+                    else {
+                        Ok(Self::#variant_name(<#field_type as ::no_std_clap_core::parser::Args>::from_args(args)?))
+                    },
+                });
             },
             Fields::Named(fields) => {
                 let field_parsers = generate_args_field_parsers(fields)?;
@@ -274,8 +296,8 @@ fn parse_subcommand_variant_attributes(variant: &Variant) -> Result<SubcommandVa
             // Gather doc comments into about (if not explicitly set)
             if variant_attrs.about.is_none() {
                 if let Meta::NameValue(meta_name_value) = &attr.meta {
-                    if let syn::Expr::Lit(expr_lit) = &meta_name_value.value {
-                        if let syn::Lit::Str(lit_str) = &expr_lit.lit {
+                    if let Expr::Lit(expr_lit) = &meta_name_value.value {
+                        if let Lit::Str(lit_str) = &expr_lit.lit {
                             // Accumulate multiple lines into one string
                             let line = lit_str.value();
                             let trimmed = line.trim();
