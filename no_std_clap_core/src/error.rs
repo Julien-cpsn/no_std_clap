@@ -20,7 +20,7 @@ impl Display for ParseError {
         match self {
             ParseError::EmptyInput => write!(f, "Empty input"),
             ParseError::Help(help) => write!(f, "{}", help),
-            ParseError::MissingArgument(arg) => write!(f, "Missing required argument: {}", arg),
+            ParseError::MissingArgument(arg) => write!(f, "Missing required argument: {}", arg.to_uppercase()),
             ParseError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
             ParseError::UnknownArgument(arg) => write!(f, "Unknown argument: {}", arg),
             ParseError::UnknownSubcommand => write!(f, "Unknown command"),

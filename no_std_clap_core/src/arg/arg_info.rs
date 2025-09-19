@@ -10,7 +10,8 @@ pub struct ArgInfo {
     pub required: bool,
     pub multiple: bool,
     pub global: bool,
-    pub count: bool
+    pub count: bool,
+    pub used: bool
 }
 
 impl ArgInfo {
@@ -24,6 +25,7 @@ impl ArgInfo {
             multiple: false,
             global: false,
             count: false,
+            used: false,
         }
     }
 

@@ -55,11 +55,14 @@ impl Command {
         self
     }
 
-    pub fn parse(&self, args: &[String]) -> Result<ParsedArgs, ParseError> {
-        self.parse_with_subcommands(args, &self.args, &self.global_args, &self.subcommands)
+    pub fn parse(&mut self, args: &[String]) -> Result<ParsedArgs, ParseError> {
+        let current_args = &mut self.args;
+        let global_args = &mut self.global_args;
+        let subcommands = &mut self.subcommands;
+        Self::parse_with_subcommands(args, current_args, global_args, subcommands)
     }
 
-    fn parse_with_subcommands(&self, args: &[String], current_args: &[ArgInfo], global_args: &[ArgInfo], current_subcommands: &[SubcommandInfo]) -> Result<ParsedArgs, ParseError> {
+    fn parse_with_subcommands(args: &[String], current_args: &mut [ArgInfo], global_args: &[ArgInfo], current_subcommands: &mut [SubcommandInfo]) -> Result<ParsedArgs, ParseError> {
         let mut result = ParsedArgs::new();
         let mut i = 0;
 
@@ -68,11 +71,11 @@ impl Command {
 
             // Check if this is a subcommand
             if !arg.starts_with('-') {
-                if let Some(subcommand_info) = current_subcommands.iter().find(|sc| sc.name == *arg) {
+                if let Some(subcommand_info) = current_subcommands.iter_mut().find(|sc| sc.name == *arg) {
                     // Parse the remaining arguments as subcommand arguments
                     let remaining_args = &args[i + 1..];
 
-                    let subcommand_result = match self.parse_with_subcommands(remaining_args, &subcommand_info.args, global_args, &subcommand_info.subcommands) {
+                    let subcommand_result = match Self::parse_with_subcommands(remaining_args, &mut subcommand_info.args, global_args, &mut subcommand_info.subcommands) {
                         Ok(subcommand_result) => subcommand_result,
                         Err(e) => return Err(e),
                     };
@@ -82,9 +85,10 @@ impl Command {
                     // Stop parsing after subcommand
                     break;
                 }
-                else if let Some(arg_info) = current_args.iter().find(|a| a.short.is_none() && a.long.is_none()) {
+                else if let Some(arg_info) = current_args.iter_mut().find(|a| a.short.is_none() && a.long.is_none() && !a.used) {
                     // Positional argument
                     result.insert(arg_info.name.clone(), arg.clone());
+                    arg_info.used = true;
                 }
                 else {
                     // Unknown positional argument -> error or ignore

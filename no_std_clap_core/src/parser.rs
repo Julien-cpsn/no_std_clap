@@ -60,7 +60,7 @@ pub trait Args: Sized {
 }
 
 // Command line string parsing function
-fn parse_command_line(input: &str) -> Result<Vec<String>, ParseError> {
+pub fn parse_command_line(input: &str) -> Result<Vec<String>, ParseError> {
     let mut args = Vec::new();
     let mut current_arg = String::new();
     let mut in_quotes = false;
