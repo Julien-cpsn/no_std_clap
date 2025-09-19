@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use crate::arg::arg_info::ArgInfo;
 use crate::arg::parsed_arg::ParsedArgs;
 use crate::error::ParseError;
+use crate::help::get_help;
 use crate::subcommand::SubcommandInfo;
 
 // Main parser trait
@@ -33,12 +34,22 @@ pub trait Parser: Sized {
         let args = parse_command_line(input)?;
         Self::parse_args(&args)
     }
+
+    fn get_help() -> String;
 }
 
 // Trait for types that can be used as subcommands
 pub trait Subcommand: Sized {
     fn from_subcommand(name: &str, parents_name: Option<String>, args: &ParsedArgs) -> Result<Self, ParseError>;
     fn subcommand_info() -> Vec<SubcommandInfo>;
+    fn get_help() -> String {
+        let mut out = String::new();
+        let info = Self::subcommand_info();
+
+        get_help(&mut out, None, &Vec::new(), &Vec::new(), &info);
+
+        out
+    }
 }
 
 // Trait for arguments that can have subcommands

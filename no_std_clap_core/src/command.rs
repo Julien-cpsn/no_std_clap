@@ -12,16 +12,20 @@ use core::fmt::Write;
 pub struct Command {
     name: Option<String>,
     version: Option<String>,
+    author: Option<String>,
+    about: Option<String>,
     args: Vec<ArgInfo>,
     global_args: Vec<ArgInfo>,
     subcommands: Vec<SubcommandInfo>,
 }
 
 impl Command {
-    pub fn new(name: Option<&str>, version: Option<&str>) -> Self {
+    pub fn new(name: Option<&str>, author: Option<&str>, version: Option<&str>, about: Option<&str>) -> Self {
         Self {
             name: name.map(|v| v.to_string()),
             version: version.map(|v| v.to_string()),
+            author: author.map(|v| v.to_string()),
+            about: about.map(|v| v.to_string()),
             args: Vec::new(),
             global_args: Vec::new(),
             subcommands: Vec::new(),
@@ -152,7 +156,7 @@ impl Command {
     pub fn get_help(&self) -> String {
         let mut out = String::new();
 
-        if let Some(name) = self.get_name() {
+        if let Some(name) = &self.name {
             write!(out, "{}", name).unwrap();
         }
 
@@ -160,7 +164,25 @@ impl Command {
             write!(out, " {}", version).unwrap();
         }
 
-        get_help(&mut out, self.name.as_ref(), &self.args, &self.global_args, &self.subcommands);
+        if let Some(author) = &self.author {
+            write!(out, " {}", author).unwrap();
+        }
+
+        if let Some(about) = &self.about {
+            if self.name.is_some() || self.version.is_some() || self.author.is_some() {
+                writeln!(out).unwrap();
+                writeln!(out).unwrap();
+            }
+
+            write!(out, "{}", about).unwrap()
+        }
+
+        if self.name.is_some() || self.version.is_some() || self.author.is_some() || self.about.is_some() {
+            writeln!(out).unwrap();
+            writeln!(out).unwrap();
+        }
+
+        get_help(&mut out, None, &self.args, &self.global_args, &self.subcommands);
 
         out
     }

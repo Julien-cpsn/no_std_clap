@@ -8,8 +8,8 @@ use crate::utils::to_kebab_case_case;
 
 struct StructAttributes {
     name: Option<String>,
-    version: Option<String>,
     author: Option<String>,
+    version: Option<String>,
     about: Option<String>,
 }
 
@@ -18,17 +18,30 @@ pub fn derive_parser_impl(input: DeriveInput) -> Result<TokenStream, Error> {
 
     // Parse struct attributes
     let struct_attrs = parse_struct_attributes(&input.attrs)?;
-    let app_name = match struct_attrs.name {
+    let (app_name, app_name_kebab_case) = match struct_attrs.name {
         Some(name) => {
-            let name = to_kebab_case_case(name.to_string());
+            let name_kebab_case = to_kebab_case_case(name.to_string());
 
-            quote! { Some(#name) }
+            (
+                quote! { Some(#name) },
+                quote! { Some(#name_kebab_case) },
+            )
         },
-        None => quote! { None },
+        None => (quote! { None }, quote! { None }),
+    };
+
+    let author = match struct_attrs.author {
+        Some(author) => quote! { Some(#author) },
+        None => quote! { None }
     };
 
     let version = match struct_attrs.version {
         Some(version) => quote! { Some(#version) },
+        None => quote! { None }
+    };
+
+    let about = match struct_attrs.about {
+        Some(about) => quote! { Some(#about) },
         None => quote! { None }
     };
 
@@ -50,9 +63,8 @@ pub fn derive_parser_impl(input: DeriveInput) -> Result<TokenStream, Error> {
                                 use ::no_std_clap_core::arg::arg_info::ArgInfo;
                                 use ::no_std_clap_core::arg::from_arg::FromArg;
                                 use ::no_std_clap_core::parser::{Subcommand, Args};
-                                use ::alloc::string::ToString;
 
-                                let mut cmd = Command::new(#app_name, #version);
+                                let mut cmd = Command::new(#app_name_kebab_case, #author, #version, #about);
 
                                 #(cmd = cmd.arg(#arg_definitions);)*
                                 cmd = cmd.arg(
@@ -72,6 +84,29 @@ pub fn derive_parser_impl(input: DeriveInput) -> Result<TokenStream, Error> {
                                 Ok(Self {
                                     #(#field_assignments)*
                                 })
+                            }
+
+                            fn get_help() -> ::alloc::string::String {
+                                use ::no_std_clap_core::command::Command;
+                                use ::no_std_clap_core::subcommand::SubcommandInfo;
+                                use ::no_std_clap_core::arg::arg_info::ArgInfo;
+                                use ::no_std_clap_core::arg::from_arg::FromArg;
+                                use ::no_std_clap_core::parser::{Subcommand, Args};
+
+                                let mut cmd = Command::new(#app_name, #author, #version, #about);
+
+                                #(cmd = cmd.arg(#arg_definitions);)*
+                                cmd = cmd.arg(
+                                    ArgInfo::new("help")
+                                        .short('h')
+                                        .long("help")
+                                        .help("Prints help information")
+                                        .global()
+                                );
+
+                                #(#subcommand_definitions)*
+
+                                cmd.get_help()
                             }
                         }
                     };

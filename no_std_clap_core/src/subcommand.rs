@@ -70,4 +70,8 @@ impl<T: Subcommand> Subcommand for Option<T> {
     fn subcommand_info() -> Vec<SubcommandInfo> {
         T::subcommand_info()
     }
+
+    fn get_help() -> String {
+        T::get_help()
+    }
 }

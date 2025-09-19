@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use crate::arg::arg_info::ArgInfo;
 use crate::subcommand::SubcommandInfo;
 
-pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, global_args: &Vec<ArgInfo>,subcommands: &Vec<SubcommandInfo>) {
+pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, global_args: &Vec<ArgInfo>, subcommands: &Vec<SubcommandInfo>) {
     if let Some(name) = name {
         write!(out, "Usage: {}", name).unwrap();
     }
@@ -13,16 +13,18 @@ pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, gl
     let positional_args: Vec<&ArgInfo> = args.iter().filter(|a| a.short.is_none() && a.long.is_none()).collect();
     let flag_args: Vec<&ArgInfo> = args.iter().filter(|a| a.short.is_some() || a.long.is_some()).collect();
 
-    for arg in &positional_args {
-        write!(out, " <{}>", arg.name.to_uppercase()).unwrap();
-    }
+    if name.is_some() {
+        for arg in &positional_args {
+            write!(out, " <{}>", arg.name.to_uppercase()).unwrap();
+        }
 
-    if name.is_some() && (!flag_args.is_empty() || !global_args.is_empty()) {
-        write!(out, " [OPTIONS]").unwrap()
-    }
+        if name.is_some() && (!flag_args.is_empty() || !global_args.is_empty()) {
+            write!(out, " [OPTIONS]").unwrap()
+        }
 
-    if name.is_some() && !subcommands.is_empty() {
-        write!(out, " [SUBCOMMAND]").unwrap();
+        if name.is_some() && !subcommands.is_empty() {
+            write!(out, " [SUBCOMMAND]").unwrap();
+        }
     }
 
     if name.is_some() && (!positional_args.is_empty() || !flag_args.is_empty() || !subcommands.is_empty()) {
@@ -32,7 +34,7 @@ pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, gl
 
     if !positional_args.is_empty() {
         writeln!(out, "Arguments:").unwrap();
-        for arg in positional_args {
+        for arg in &positional_args {
             let mut line = String::new();
 
             write!(line, "{}", arg.name.to_uppercase()).unwrap();
@@ -46,8 +48,12 @@ pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, gl
     }
 
     if !flag_args.is_empty() || !global_args.is_empty() {
+        if !positional_args.is_empty() {
+            writeln!(out).unwrap();
+        }
+
         writeln!(out, "Options:").unwrap();
-        for arg in flag_args {
+        for arg in &flag_args {
             let mut line = String::new();
 
             if let Some(short) = arg.short {
@@ -93,7 +99,7 @@ pub fn get_help(out: &mut String, name: Option<&String>, args: &Vec<ArgInfo>, gl
     }
 
     if !subcommands.is_empty() {
-        if !args.is_empty() {
+        if !positional_args.is_empty() || !flag_args.is_empty() || !global_args.is_empty() {
             writeln!(out).unwrap();
         }
 
